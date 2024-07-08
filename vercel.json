@@ -1,10 +1,10 @@
 {
     "functions": {
       "api/process": {
-        "runtime": "python3.8"
+        "runtime": "python3.11"
       },
       "api/ask": {
-        "runtime": "python3.8"
+        "runtime": "python3.11"
       }
     },
     "routes": [
