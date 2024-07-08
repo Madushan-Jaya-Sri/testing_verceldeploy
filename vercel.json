@@ -1,11 +1,16 @@
 {
     "functions": {
+        "core/wsgi.py": {
+            "runtime": "@vercel/python@4.3.0"
+        },
       "api/process": {
         "runtime": "python3.11"
       },
       "api/ask": {
         "runtime": "python3.11"
       }
+      
+
     },
     "routes": [
       { "src": "/process", "dest": "api/process" },
