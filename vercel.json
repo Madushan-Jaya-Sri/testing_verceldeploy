@@ -1,8 +1,5 @@
 {
     "functions": {
-        "core/wsgi.py": {
-            "runtime": "@vercel/python@4.3.0"
-        },
       "api/process": {
         "runtime": "python3.11"
       },
