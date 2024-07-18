@@ -1,9 +1,7 @@
-import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template, jsonify, session
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-import base64
-
+import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -13,14 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure GoogleGenerativeAIEmbeddings with API key
-from google.generativeai import configure
-configure(api_key=os.getenv("GOOGLE_API_KEY"))
-
 app = Flask(__name__)
-
-# Global variable to store processed text chunks
-processed_text_chunks = None
+app.secret_key = os.urandom(24)  # Set a secret key for session management
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -39,7 +31,6 @@ def get_vector_store(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
-    return vector_store
 
 def get_conversational_chain():
     prompt_template = """
@@ -58,34 +49,10 @@ def get_conversational_chain():
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
-def process_and_store_pdf(pdf_docs):
-    global processed_text_chunks
-    raw_text = get_pdf_text(pdf_docs)
-    text_chunks = get_text_chunks(raw_text)
-    vector_store = get_vector_store(text_chunks)
-    processed_text_chunks = text_chunks
-
-@app.route('/process', methods=['POST'])
-def process_pdf():
-    global processed_text_chunks
-    pdf_docs = request.files.getlist('pdf_files')
-    process_and_store_pdf(pdf_docs)
-    return jsonify({'message': 'Processing complete'})
-
-@app.route('/ask', methods=['POST'])
-def ask_question():
-    global processed_text_chunks
-    user_question = request.form['user_question']
-    
-    # Check if text chunks are processed
-    if processed_text_chunks is None:
-        return jsonify({'error': 'PDFs not processed yet'})
-
-    # Use the stored text chunks to find relevant documents
+def process_question(user_question):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    new_db = FAISS.from_texts(processed_text_chunks, embedding=embeddings)
+    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     docs = new_db.similarity_search(user_question)
-
     chain = get_conversational_chain()
 
     try:
@@ -93,9 +60,41 @@ def ask_question():
             {"input_documents": docs, "question": user_question},
             return_only_outputs=True
         )
-        return jsonify({'response': response["output_text"]})
+        return response["output_text"]
     except Exception as e:
-        return jsonify({'error': f"An error occurred: {e}"})
+        return str(e)
+
+@app.route('/')
+def index():
+    processed_files = session.get('processed_files', [])
+    return render_template('index.html', processed_files=processed_files)
+
+@app.route('/process', methods=['POST'])
+def process_pdfs():
+    pdf_files = request.files.getlist('pdf_files')
+    if pdf_files:
+        raw_text = get_pdf_text(pdf_files)
+        text_chunks = get_text_chunks(raw_text)
+        get_vector_store(text_chunks)
+
+        # Store processed file names in session
+        processed_files = session.get('processed_files', [])
+        for pdf in pdf_files:
+            processed_files.append(pdf.filename)
+        session['processed_files'] = processed_files
+
+        return jsonify({'message': 'Processing complete'})
+    else:
+        return jsonify({'message': 'No files uploaded'})
+
+@app.route('/ask', methods=['POST'])
+def ask_question():
+    user_question = request.form.get('user_question')
+    if user_question:
+        response = process_question(user_question)
+        return jsonify({'response': response})
+    else:
+        return jsonify({'response': 'No question asked'})
 
 if __name__ == '__main__':
     app.run(debug=True)

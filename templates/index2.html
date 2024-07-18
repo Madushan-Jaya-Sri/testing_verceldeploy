@@ -1,0 +1,62 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ask DocMan 🤖</title>
+    <style>
+        body {
+            background-image: url("{{ url_for('static', filename='images/Firefly give me an image of Artificial Intelligent bot searching for something document files, use d (2).jpg') }}");
+            background-size: cover;
+        }
+        /* Additional CSS styles */
+    </style>
+</head>
+<body>
+    <h1>Ask DocMan 🤖</h1>
+
+    <form id="pdf_form" method="POST" action="/process" enctype="multipart/form-data">
+        <input type="file" name="pdf_files" accept=".pdf" multiple>
+        <button type="submit">Submit & Process PDFs</button>
+    </form>
+
+    <hr>
+
+    <div id="question_form">
+        <form id="ask_form" method="POST" action="/ask">
+            <input type="text" name="user_question" id="user_question" placeholder="Ask a Question from the PDF Files" required>
+            <button type="submit">Ask</button>
+        </form>
+    </div>
+
+    <div id="response"></div>
+
+    <!-- Optional: JavaScript for handling responses -->
+    <script>
+        document.getElementById('pdf_form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            let formData = new FormData(this);
+            let response = await fetch('/process', {
+                method: 'POST',
+                body: formData
+            });
+            let result = await response.json();
+            if (result.message === 'Processing complete') {
+                document.getElementById('question_form').style.display = 'block';
+            }
+            document.getElementById('response').innerText = result.message;
+        });
+
+        document.getElementById('ask_form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            let formData = new FormData(this);
+            let response = await fetch('/ask', {
+                method: 'POST',
+                body: formData
+            });
+            let result = await response.json();
+            document.getElementById('response').innerText = result.response;
+        });
+    </script>
+
+</body>
+</html>

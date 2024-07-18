@@ -1,62 +1,158 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <title>Ask DocMan 🤖</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            background-image: url("{{ url_for('static', filename='images/Firefly give me an image of Artificial Intelligent bot searching for something document files, use d (2).jpg') }}");
+            background-image: url("{{ url_for('static', filename='images/bgimg.jpg') }}");
             background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
         }
-        /* Additional CSS styles */
+        h1 {
+            font-size: 3em;
+            color: orange;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .form-container {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 600px;
+        }
+        .btn-custom {
+            background-color: #339988;
+            color: white;
+        }
+        .btn-custom:hover {
+            background-color: #287a67;
+        }
+        .spinner-border {
+            display: none;
+        }
+        #response-container {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        #processed-files {
+            margin-top: 10px;
+        }
+        #processed-files div {
+            color: #ddd;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
-    <h1>Ask DocMan 🤖</h1>
+    <div class="container">
+        <h1>Ask DocMan 🤖</h1>
 
-    <form id="pdf_form" method="POST" action="/process" enctype="multipart/form-data">
-        <input type="file" name="pdf_files" accept=".pdf" multiple>
-        <button type="submit">Submit & Process PDFs</button>
-    </form>
+        <div class="form-container">
+            <form id="pdf_form" method="POST" action="/process" enctype="multipart/form-data" class="mb-4">
+                <div class="form-group">
+                    <label for="pdf_files">Upload your PDF Files:</label>
+                    <input type="file" name="pdf_files" accept=".pdf" multiple class="form-control-file" id="pdf_files">
+                </div>
+                <button type="submit" class="btn btn-custom btn-block">
+                    Submit & Process PDFs
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </button>
+            </form>
 
-    <hr>
+            <hr>
 
-    <div id="question_form">
-        <form id="ask_form" method="POST" action="/ask">
-            <input type="text" name="user_question" id="user_question" placeholder="Ask a Question from the PDF Files" required>
-            <button type="submit">Ask</button>
-        </form>
+            <div id="question_form" style="display: none;">
+                <form id="ask_form" method="POST" action="/ask">
+                    <div class="form-group">
+                        <label for="user_question">Ask a Question from the PDF Files:</label>
+                        <input type="text" name="user_question" id="user_question" placeholder="Ask a Question from the PDF Files" required class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-custom btn-block">
+                        Ask
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="response-container">
+                <div id="response"></div>
+                <div id="processed-files">
+                    <!-- Display processed files here -->
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="response"></div>
-
-    <!-- Optional: JavaScript for handling responses -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
+        function toggleSpinner(button, show) {
+            const spinner = button.querySelector('.spinner-border');
+            if (show) {
+                spinner.style.display = 'inline-block';
+                button.disabled = true;
+            } else {
+                spinner.style.display = 'none';
+                button.disabled = false;
+            }
+        }
+
         document.getElementById('pdf_form').addEventListener('submit', async function(event) {
             event.preventDefault();
+            const submitButton = this.querySelector('button[type="submit"]');
+            toggleSpinner(submitButton, true);
+
             let formData = new FormData(this);
             let response = await fetch('/process', {
                 method: 'POST',
                 body: formData
             });
             let result = await response.json();
+            toggleSpinner(submitButton, false);
+
             if (result.message === 'Processing complete') {
                 document.getElementById('question_form').style.display = 'block';
+                // Clear existing processed files
+                document.getElementById('processed-files').innerHTML = '';
+                // Append processed files
+                result.processed_files.forEach(file => {
+                    let fileElement = document.createElement('div');
+                    fileElement.textContent = file;
+                    document.getElementById('processed-files').appendChild(fileElement);
+                });
             }
             document.getElementById('response').innerText = result.message;
         });
 
         document.getElementById('ask_form').addEventListener('submit', async function(event) {
             event.preventDefault();
+            const submitButton = this.querySelector('button[type="submit"]');
+            toggleSpinner(submitButton, true);
+
             let formData = new FormData(this);
             let response = await fetch('/ask', {
                 method: 'POST',
                 body: formData
             });
             let result = await response.json();
+            toggleSpinner(submitButton, false);
+
             document.getElementById('response').innerText = result.response;
         });
     </script>
-
 </body>
 </html>
